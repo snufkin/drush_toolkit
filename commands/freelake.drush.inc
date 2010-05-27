@@ -10,6 +10,8 @@ function freelake_drush_help($section) {
       return dt("Usage: drush preprocesses. List preprocess names for the templates.");
     case 'drush:fields':
       return dt("Usage: drush fields. List fields available in views.");
+    case 'drush:pw-reset':
+      return dt("Usage: drush pw-reset [username] [password]. Reset the password for a given user.");
   }
 }
 
@@ -39,6 +41,10 @@ function freelake_drush_command() {
     'callback' => 'drush_freelake_fields',
     'description' => 'List fields available in views.',
     'drupal dependencies' => array('views'),
+  );
+  $items['pw-reset'] = array(
+    'callback' => 'drush_freelake_pw_reset',
+    'description' => 'Change/reset the password for a user.',
   );
   return $items;
 }
@@ -97,3 +103,21 @@ function drush_freelake_preprocess() {
   }
 }
 
+/**
+ * Reset the password for a given user (by default it will be the root user).
+ */
+function drush_freelake_pw_reset($user = 1, $password = 'drupal') {
+  if (is_numeric($user)) {
+    $account = user_load(array('uid' => $user));
+  }
+  else {
+    $account = user_load(array('name' => $user));
+  }
+  
+  if ($account->uid == 1) {
+    $data['name'] = 'admin';
+  }
+  $data['pass'] = $password;
+  // user_save takes care of generating the md5 hash.
+  user_save($account, $data);
+}
