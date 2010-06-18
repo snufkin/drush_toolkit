@@ -44,7 +44,7 @@ function freelake_drush_command() {
   );
   $items['pw-reset'] = array(
     'callback' => 'drush_freelake_pw_reset',
-    'description' => 'Change/reset the password for a user.',
+    'description' => 'Change/reset the password for a user. Usage: drush pw-reset [username/uid] [password]. If no arguments given username will assume user 1 and the password will be drupal.',
   );
   return $items;
 }
