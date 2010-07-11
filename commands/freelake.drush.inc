@@ -12,6 +12,8 @@ function freelake_drush_help($section) {
       return dt("Usage: drush fields. List fields available in views.");
     case 'drush:pw-reset':
       return dt("Usage: drush pw-reset [username] [password]. Reset the password for a given user.");
+    case 'drush:variable-list':
+      return dt("List, or export Drupal variables. Without any arguments a list of all variables will be shown. If arguments are specified they'll be var_exported to stdout.");
   }
 }
 
@@ -45,6 +47,11 @@ function freelake_drush_command() {
   $items['pw-reset'] = array(
     'callback' => 'drush_freelake_pw_reset',
     'description' => 'Change/reset the password for a user. Usage: drush pw-reset [username/uid] [password]. If no arguments given username will assume user 1 and the password will be drupal.',
+  );
+  $items['variable-list'] = array(
+    'callback' => 'drush_freelake_variable_list',
+    'description' => 'Export variable(s).',
+    'aliases' => array('vlist'),
   );
   return $items;
 }
@@ -120,4 +127,86 @@ function drush_freelake_pw_reset($user = 1, $password = 'drupal') {
   $data['pass'] = $password;
   // user_save takes care of generating the md5 hash.
   user_save($account, $data);
+}
+
+/**
+ * List the variable names used.
+ */
+function drush_freelake_variable_list() {
+  $vars = func_get_args();
+  if (empty($vars)) {
+    // Pull all variables from DB.
+    $result = db_query('SELECT name FROM variable');
+    $variables = array();
+    while ($variable = db_fetch_object($result)) {
+      $variables[$variable->name] = $variable->name;
+    }
+
+    // Pull all variables defined in hook_strongarm(), merge them in.
+    $strongarmed = drupal_map_assoc(array_keys(strongarm_get_conf(TRUE, TRUE)));
+    $variables = $variables + $strongarmed;
+    ksort($variables);
+
+    // Output result, flag strongarmed variables.
+    $rows = array(array('Strongarmed', 'Variable name'));
+    foreach ($variables as $variable) {
+      $flag = $strongarmed[$variable] ? '*' : '';
+      $rows[] = array($flag, $variable);
+    }
+    drush_print_table($rows, TRUE);
+  }
+  else {
+    $exports = array();
+    foreach ($vars as $v) {
+      // We use the very unlikely 'DRUSH_STRONGARM_NO_VALUE_HERE' as the 
+      // default value which *should* be ok, right?
+      $variable = variable_get($v, 'DRUSH_STRONGARM_NO_VALUE_HERE');
+      if ($variable !== 'DRUSH_STRONGARM_NO_VALUE_HERE') {
+        $exports[$v] = $variable;
+      }
+    }
+    drush_print(var_export($exports));
+  }
+}
+
+/**
+ * Backporting the strongarm_get_conf. TODO rewrite above command to use strongarm code.
+ */
+if (!function_exists('strongarm_get_conf')) {
+  /**
+   * Retrieve variable configuration from the cache.
+   */
+  function strongarm_get_conf($bootstrapped = TRUE, $reset = FALSE) {
+    static $var_conf = array();
+    if (!isset($var_conf) || $reset) {
+      if (!$reset) {
+        $cache = cache_get('strongarm', 'cache');
+        $var_conf = $cache ? $cache->data : NULL;
+      }
+      if (!isset($var_conf) && $bootstrapped) {
+        // We don't use module_invoke_all() here since
+        // array_merge_recursive() can alter the desired structure of
+        // some variables.
+        foreach (module_implements('strongarm') as $module) {
+          $module_conf = module_invoke($module, 'strongarm');
+          foreach ($module_conf as $name => $value) {
+            if (isset($var_conf[$name])) {
+              if (is_array($value)) {
+                $var_conf[$name] = array_merge($var_conf[$name], $value);
+              }
+              else {
+                // Blow the earlier one away
+                $var_conf[$name] = $value;
+              }
+            }
+            else {
+              $var_conf[$name] = $value;
+            }
+          }
+        }
+        cache_set('strongarm', $var_conf);
+      }
+    }
+    return $var_conf;
+  }
 }
