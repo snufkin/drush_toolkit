@@ -14,6 +14,8 @@ function freelake_drush_help($section) {
       return dt("Usage: drush pw-reset [username] [password]. Reset the password for a given user.");
     case 'drush:variable-list':
       return dt("List, or export Drupal variables. Without any arguments a list of all variables will be shown. If arguments are specified they'll be var_exported to stdout.");
+    case 'drush:modules-list':
+      return dt("List all enabled modules, preparing for export into an install profile.");
   }
 }
 
@@ -52,6 +54,11 @@ function freelake_drush_command() {
     'callback' => 'drush_freelake_variable_list',
     'description' => 'Export variable(s).',
     'aliases' => array('vlist'),
+  );
+  $items['modules-list'] = array(
+    'callback' => 'drush_freelake_modules_list',
+    'description' => 'Export module list',
+    'aliases' => array('mlist'),
   );
   return $items;
 }
