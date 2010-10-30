@@ -16,6 +16,8 @@ function freelake_drush_help($section) {
       return dt("List, or export Drupal variables. Without any arguments a list of all variables will be shown. If arguments are specified they'll be var_exported to stdout.");
     case 'drush:modules-list':
       return dt("List all enabled modules, preparing for export into an install profile.");
+    case 'drush:node-delete':
+      return dt("Delete given nodes or node types.");
   }
 }
 
@@ -60,7 +62,27 @@ function freelake_drush_command() {
     'description' => 'Export module list',
     'aliases' => array('mlist'),
   );
+  $items['node-delete'] = array(
+    'callback' => 'drush_freelake_node_delete',
+    'description' => 'Delete nodes',
+    'aliases' => array('nd'),
+  );
   return $items;
+}
+
+function drush_freelake_node_delete($nidtype) {
+  global $user;
+  $user = user_load(1); // Hell yeah!
+  if (is_numeric($nidtype)) {
+    node_delete($nidtype);
+  }
+  else {
+    $result = db_query('SELECT nid FROM {node} WHERE type = "%s"', $nidtype);
+    while ($nid = db_fetch_object($result)) {
+      echo "Deleting $nid->nid\n";
+      node_delete($nid->nid);
+    }
+  }
 }
 
 function drush_freelake_reset($db_spec = NULL) {
@@ -217,3 +239,8 @@ if (!function_exists('strongarm_get_conf')) {
     return $var_conf;
   }
 }
+
+function drush_freelake_modules_list() {
+
+}
+
